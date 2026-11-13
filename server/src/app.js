@@ -6,6 +6,7 @@ import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 
@@ -25,16 +26,33 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 const corsOptions = {
   origin: (origin, callback) => {
-    const allowed = [env.CLIENT_URL, 'http://localhost:3000', 'http://localhost:5173'];
-    if (!origin || allowed.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error(`CORS origin "${origin}" not allowed`));
+    if (!origin) return callback(null, true);
+
+    const allowed = [
+      env.CLIENT_URL,
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:5000',
+    ].filter(Boolean);
+
+    if (
+      allowed.includes(origin) ||
+      origin.endsWith('.onrender.com') ||
+      origin.includes('localhost') ||
+      (env.CLIENT_URL && origin === env.CLIENT_URL)
+    ) {
+      return callback(null, true);
     }
+    return callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -68,52 +86,6 @@ app.use('/api', apiLimiter);
 
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-app.get('/', (_req, res) => {
-  const isConnected = mongoose.connection.readyState === 1;
-  const dbStatus = isConnected ? 'Connected' : 'Disconnected';
-
-  res.status(200).send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>TechBlog API Server</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #0f172a; color: #f8fafc; }
-        .card { background: #1e293b; border-radius: 16px; padding: 36px 48px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); max-width: 520px; width: 100%; text-align: center; border: 1px solid #334155; }
-        h1 { margin: 0 0 12px; font-size: 26px; }
-        .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 9999px; font-weight: 600; font-size: 14px; margin: 16px 0; background: #064e3b; color: #34d399; border: 1px solid #059669; }
-        .badge.disconnected { background: #7f1d1d; color: #f87171; border-color: #dc2626; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
-        .badge.disconnected .dot { background: #ef4444; }
-        p { color: #94a3b8; line-height: 1.6; margin: 8px 0; font-size: 15px; }
-        .links { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-        a { color: #38bdf8; text-decoration: none; font-weight: 500; font-size: 14px; padding: 8px 16px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; transition: all 0.2s; }
-        a:hover { background: #38bdf8; color: #0f172a; }
-      </style>
-    </head>
-    <body>
-      <div class="card">
-        <h1>TechBlog API Server</h1>
-        <div class="badge ${isConnected ? '' : 'disconnected'}">
-          <span class="dot"></span>
-          MongoDB: ${dbStatus}
-        </div>
-        <p><strong>Database:</strong> ${mongoose.connection.name || 'techblog'}</p>
-        <p><strong>Host:</strong> ${mongoose.connection.host || 'MongoDB Atlas'}</p>
-        <div class="links">
-          <a href="/api/health" target="_blank">Health Check</a>
-          <a href="/api/posts" target="_blank">Posts API</a>
-          <a href="/api/categories" target="_blank">Categories API</a>
-          <a href="http://localhost:3000" target="_blank">Open Frontend</a>
-        </div>
-      </div>
-    </body>
-    </html>
-  `);
-});
-
 app.get('/api/health', (_req, res) => {
   const dbState = ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown';
   res.status(200).json({
@@ -136,6 +108,64 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/newsletter', newsletterRoutes);
 app.use('/', seoRoutes);
+
+const clientDistPath = path.resolve(__dirname, '..', '..', 'client', 'dist');
+
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDistPath, 'index.html'));
+  });
+} else {
+  app.get('/', (_req, res) => {
+    const isConnected = mongoose.connection.readyState === 1;
+    const dbStatus = isConnected ? 'Connected' : 'Disconnected';
+
+    res.status(200).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>TechBlog API Server</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: #0f172a; color: #f8fafc; }
+          .card { background: #1e293b; border-radius: 16px; padding: 36px 48px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4); max-width: 520px; width: 100%; text-align: center; border: 1px solid #334155; }
+          h1 { margin: 0 0 12px; font-size: 26px; }
+          .badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 9999px; font-weight: 600; font-size: 14px; margin: 16px 0; background: #064e3b; color: #34d399; border: 1px solid #059669; }
+          .badge.disconnected { background: #7f1d1d; color: #f87171; border-color: #dc2626; }
+          .dot { width: 10px; height: 10px; border-radius: 50%; background: #10b981; }
+          .badge.disconnected .dot { background: #ef4444; }
+          p { color: #94a3b8; line-height: 1.6; margin: 8px 0; font-size: 15px; }
+          .links { margin-top: 24px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+          a { color: #38bdf8; text-decoration: none; font-weight: 500; font-size: 14px; padding: 8px 16px; background: #0f172a; border-radius: 8px; border: 1px solid #334155; transition: all 0.2s; }
+          a:hover { background: #38bdf8; color: #0f172a; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h1>TechBlog API Server</h1>
+          <div class="badge ${isConnected ? '' : 'disconnected'}">
+            <span class="dot"></span>
+            MongoDB: ${dbStatus}
+          </div>
+          <p><strong>Database:</strong> ${mongoose.connection.name || 'techblog'}</p>
+          <p><strong>Host:</strong> ${mongoose.connection.host || 'MongoDB Atlas'}</p>
+          <div class="links">
+            <a href="/api/health" target="_blank">Health Check</a>
+            <a href="/api/posts" target="_blank">Posts API</a>
+            <a href="/api/categories" target="_blank">Categories API</a>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+  });
+}
 
 app.use((req, res) => {
   sendError(res, `Route not found: ${req.method} ${req.originalUrl}`, 404);

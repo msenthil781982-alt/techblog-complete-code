@@ -10,12 +10,12 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 function validateEnv() {
-  const mongoUri = process.env.MONGO_URI || process.env.MONGO_URL;
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.MONGO_URL;
   const required = ['JWT_SECRET', 'JWT_REFRESH_SECRET'];
   const missing = required.filter((key) => !process.env[key]);
 
   if (!mongoUri) {
-    missing.unshift('MONGO_URI');
+    missing.unshift('MONGO_URI / MONGODB_URI');
   }
 
   if (missing.length > 0) {
@@ -29,7 +29,7 @@ const env = Object.freeze({
   PORT: parseInt(process.env.PORT, 10) || 5000,
   NODE_ENV: process.env.NODE_ENV || 'development',
 
-  MONGO_URI: process.env.MONGO_URI || process.env.MONGO_URL,
+  MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI || process.env.MONGO_URL,
 
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
@@ -39,7 +39,7 @@ const env = Object.freeze({
   ADMIN_EMAIL: process.env.ADMIN_EMAIL || 'admin@techblog.com',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || 'Admin@123456',
 
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:3000',
+  CLIENT_URL: process.env.CLIENT_URL || process.env.RENDER_EXTERNAL_URL || 'http://localhost:3000',
 
   CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || '',
   CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || '',

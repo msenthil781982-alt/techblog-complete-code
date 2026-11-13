@@ -4,14 +4,19 @@
   "description": "Full Stack Technology Blog - MERN Stack",
   "private": true,
   "scripts": {
+    "build": "npm run install:all && npm run build:client",
+    "build:client": "cd client && npm run build",
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install --include=dev",
+    "install:all": "npm run install:server && npm run install:client",
+    "start": "cd server && node src/index.js",
     "dev": "cd server && npm run dev",
-    "start": "cd server && npm start",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "install:server": "cd server && npm install",
-    "install:client": "cd client && npm install",
-    "install:all": "npm run install:server && npm run install:client",
     "seed": "cd server && npm run seed"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "keywords": ["mern", "blog", "fullstack"],
   "author": "Tech Nova",
