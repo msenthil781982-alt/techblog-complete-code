@@ -1,0 +1,19 @@
+{
+  "name": "techblog",
+  "version": "1.0.0",
+  "description": "Full Stack Technology Blog - MERN Stack",
+  "private": true,
+  "scripts": {
+    "dev": "cd server && npm run dev",
+    "start": "cd server && npm start",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "install:server": "cd server && npm install",
+    "install:client": "cd client && npm install",
+    "install:all": "npm run install:server && npm run install:client",
+    "seed": "cd server && npm run seed"
+  },
+  "keywords": ["mern", "blog", "fullstack"],
+  "author": "Tech Nova",
+  "license": "MIT"
+}
